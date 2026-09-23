@@ -1,62 +1,60 @@
 # proj
 
-Atalhos de terminal pra abrir projetos no Windows. `proj add mrm -r MRM` cria o comando `mrm`, que entra em `E:\Roblox Projects\MRM` e abre o `claude` lá. Argumentos passam direto: `mrm -c` vira `claude -c`.
+Terminal shortcuts for opening projects on Windows. `proj add mygame` creates the command `mygame`, which `cd`s into `%USERPROFILE%\projects\mygame` and runs `claude` there. Arguments pass through: `mygame -c` becomes `claude -c`.
 
-Funciona no cmd, no PowerShell 7 e no Windows PowerShell 5.1.
+Works in cmd, PowerShell 7, and Windows PowerShell 5.1.
 
-## Instalação
+## Install
 
 ```powershell
-git clone <url-do-repo> proj
+git clone <repo-url> proj
 cd proj
 powershell -ExecutionPolicy Bypass -File install.ps1
 ```
 
-Abra um terminal novo e rode `proj`.
+Open a new terminal and run `proj`.
 
-## Pastas base
+## Shortcuts
 
-Cada pessoa configura as suas. A chave vira a flag usada no `add`.
+```
+proj add mygame              # %USERPROFILE%\projects\mygame
+proj add mygame "My Game"    # %USERPROFILE%\projects\My Game
+proj add x "D:\anywhere"     # a full path skips the base
+proj add x .                 # current folder
+proj list
+proj rm mygame               # removes only the shortcut, never the project folder
+```
+
+Missing project folders are created.
+
+## Bases
+
+A base is a folder where projects live. Its key becomes a flag for `add`. Everyone sets up their own.
 
 ```
 proj base add r "E:\Roblox Projects"
-proj base add w "E:\Projects"
-proj base                  # lista
-proj base rm w
-proj base default r        # base usada quando o add nao tem flag
-proj base default off      # desliga: add sem flag volta a usar a pasta atual
-```
-
-## Atalhos
-
-```
 proj add mrm -r MRM          # E:\Roblox Projects\MRM
-proj add novo -r             # E:\Roblox Projects\novo (sem pasta, usa o nome)
-proj add kito -w KitoTask    # E:\Projects\KitoTask
-proj add jogo                # base padrao\jogo (sem base padrao: pasta atual)
-proj add x "D:\qualquer"     # caminho completo ignora a base padrao
-proj add x .                 # pasta atual
-proj list
-proj rm mrm                  # apaga só o atalho, nunca a pasta do projeto
+proj base                    # list
+proj base default r          # use -r when add has no flag
+proj base default off        # back to %USERPROFILE%\projects
+proj base rm r
 ```
 
-Se a pasta do projeto não existir, ela é criada.
+## Configuration
 
-## Configuração
+Everything lives in `%USERPROFILE%\.proj`, outside the repo:
 
-Tudo fica em `%USERPROFILE%\.proj`, fora do repo:
+- `config.json`: bases, the default base, and the command shortcuts run (`"command": "claude"`; change it to `code .`, for example).
+- `bin\`: `proj.bat` and your shortcuts. `install.ps1` puts this folder at the front of the user PATH.
 
-- `config.json`: pastas base e o comando que os atalhos rodam (`"command": "claude"`; troque por `code .`, por exemplo).
-- `bin\`: o `proj.bat` e os atalhos. O `install.ps1` coloca essa pasta no início do PATH do usuário.
+Set `PROJ_HOME` before installing to use a different location.
 
-Pra usar outro lugar, defina a variável `PROJ_HOME` antes de instalar.
-
-## Testes
+## Tests
 
 ```powershell
 pwsh -File test.ps1
 ```
 
-## Desinstalar
+## Uninstall
 
-Apague `%USERPROFILE%\.proj` e tire `%USERPROFILE%\.proj\bin` do PATH do usuário.
+Delete `%USERPROFILE%\.proj` and remove `%USERPROFILE%\.proj\bin` from the user PATH.

@@ -1,4 +1,4 @@
-# Instala o proj pro usuario atual: cria ~/.proj/bin, o comando proj.bat e coloca a pasta no PATH.
+# Installs proj for the current user: creates ~/.proj/bin, the proj.bat command, and adds the folder to PATH.
 $ErrorActionPreference = 'Stop'
 
 $projHome = if ($env:PROJ_HOME) { $env:PROJ_HOME } else { Join-Path $HOME '.proj' }
@@ -7,7 +7,7 @@ $script = Join-Path $PSScriptRoot 'proj.ps1'
 
 New-Item -ItemType Directory -Force -Path $binDir | Out-Null
 
-# Usa pwsh (PowerShell 7) se existir, senao o Windows PowerShell que vem com o Windows.
+# Prefer pwsh (PowerShell 7) when present, otherwise the Windows PowerShell that ships with Windows.
 $shim = @"
 @echo off
 where pwsh >nul 2>nul
@@ -22,9 +22,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$script" %*
 $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
 $entries = @($userPath -split ';' | Where-Object { $_ })
 if ($entries -notcontains $binDir) {
-    # No inicio do PATH: um PATH longo pode ser truncado e perder as entradas do final.
+    # Put it first: a very long PATH can get truncated and lose its last entries.
     [Environment]::SetEnvironmentVariable('Path', (@($binDir) + $entries) -join ';', 'User')
-    Write-Host "Adicionado ao PATH: $binDir"
+    Write-Host "Added to PATH: $binDir"
 }
 
-Write-Host "proj instalado. Abra um terminal novo e rode: proj"
+Write-Host "proj installed. Open a new terminal and run: proj"
