@@ -23,6 +23,8 @@ proj base add r "E:\Roblox Projects"
 proj base add w "E:\Projects"
 proj base                  # lista
 proj base rm w
+proj base default r        # base usada quando o add nao tem flag
+proj base default off      # desliga: add sem flag volta a usar a pasta atual
 ```
 
 ## Atalhos
@@ -31,8 +33,9 @@ proj base rm w
 proj add mrm -r MRM          # E:\Roblox Projects\MRM
 proj add novo -r             # E:\Roblox Projects\novo (sem pasta, usa o nome)
 proj add kito -w KitoTask    # E:\Projects\KitoTask
-proj add x "D:\qualquer"     # pasta qualquer
-proj add x                   # pasta atual
+proj add jogo                # base padrao\jogo (sem base padrao: pasta atual)
+proj add x "D:\qualquer"     # caminho completo ignora a base padrao
+proj add x .                 # pasta atual
 proj list
 proj rm mrm                  # apaga só o atalho, nunca a pasta do projeto
 ```

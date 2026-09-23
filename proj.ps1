@@ -59,13 +59,15 @@ function Show-Usage {
     Write-Host @"
 Uso:
   proj list                        lista os atalhos
-  proj add <nome> [pasta]          atalho pra qualquer pasta (padrao = pasta atual)
-  proj add <nome> -<base> [pasta]  atalho dentro de uma pasta base (padrao = <nome>)
+  proj add <nome> [pasta]          na base padrao (ou na pasta atual, se nao houver padrao)
+  proj add <nome> -<base> [pasta]  dentro de uma base especifica (pasta padrao = <nome>)
+  proj add <nome> <C:\caminho>     caminho completo; use . pra pasta atual
   proj rm <nome>                   remove o atalho (a pasta do projeto fica intacta)
 
   proj base                        lista as pastas base
   proj base add <chave> <pasta>    cria base, ex: proj base add r "E:\Roblox Projects"
   proj base rm <chave>             remove base
+  proj base default <chave>        base usada quando o add nao tem flag (off = desliga)
 
   Se a pasta do projeto nao existir, ela e criada.
   Config: $configPath
@@ -78,6 +80,13 @@ function Invoke-List {
     foreach ($s in $shortcuts) { '{0,-14} {1}' -f $s.BaseName, (Get-ShortcutTarget $s) }
 }
 
+function Get-BasePath($config, $key) {
+    $base = $config.bases.$key
+    if (-not $base) { Fail "Base '-$key' nao existe. Veja com: proj base" }
+    if (-not (Test-Path -LiteralPath $base -PathType Container)) { Fail "Pasta da base '-$key' nao existe: $base" }
+    return $base
+}
+
 function Invoke-Add($list) {
     $parsed = Split-Args $list
     $name = $parsed.Positional | Select-Object -First 1
@@ -88,10 +97,12 @@ function Invoke-Add($list) {
     if (Get-Command $name -ErrorAction SilentlyContinue) { Fail "'$name' ja existe como comando. Escolha outro nome." }
 
     $config = Read-Config
-    if ($parsed.BaseKey) {
-        $base = $config.bases.($parsed.BaseKey)
-        if (-not $base) { Fail "Base '-$($parsed.BaseKey)' nao existe. Veja com: proj base" }
-        if (-not (Test-Path -LiteralPath $base -PathType Container)) { Fail "Pasta da base '-$($parsed.BaseKey)' nao existe: $base" }
+    # Caminho completo ou relativo explicito (., ..\x) ignora a base padrao.
+    $isExplicitPath = $folder -and ([IO.Path]::IsPathRooted($folder) -or $folder.StartsWith('.'))
+    $baseKey = if ($parsed.BaseKey) { $parsed.BaseKey } elseif (-not $isExplicitPath) { $config.default }
+
+    if ($baseKey) {
+        $base = Get-BasePath $config $baseKey
         $target = Join-Path $base $(if ($folder) { $folder } else { $name })
     }
     elseif ($folder) { $target = $folder }
@@ -128,7 +139,24 @@ function Invoke-Base($list) {
         { $_ -in 'list', 'ls' } {
             $props = @($config.bases.PSObject.Properties)
             if ($props.Count -eq 0) { 'Nenhuma base. Crie com: proj base add <chave> <pasta>'; return }
-            foreach ($p in $props) { '-{0,-8} {1}' -f $p.Name, $p.Value }
+            foreach ($p in $props) {
+                $flag = if ($p.Name -eq $config.default) { '(padrao)' } else { '' }
+                '-{0,-8} {1} {2}' -f $p.Name, $p.Value, $flag
+            }
+        }
+        'default' {
+            if (-not $key) { Fail 'Uso: proj base default <chave>   |   proj base default off' }
+            $key = $key.TrimStart('-')
+            if ($key -eq 'off') {
+                $config | Add-Member default $null -Force
+                Save-Config $config
+                Write-Host 'Sem base padrao: proj add <nome> usa a pasta atual.'
+                return
+            }
+            Get-BasePath $config $key | Out-Null
+            $config | Add-Member default $key -Force
+            Save-Config $config
+            Write-Host "Base padrao: -$key ($($config.bases.$key))"
         }
         { $_ -in 'add', 'set' } {
             if (-not $key -or -not $folder) { Fail 'Uso: proj base add <chave> <pasta>' }
@@ -145,6 +173,7 @@ function Invoke-Base($list) {
             $key = $key.TrimStart('-')
             if (-not $config.bases.$key) { Fail "Base '-$key' nao existe." }
             $config.bases.PSObject.Properties.Remove($key)
+            if ($config.default -eq $key) { $config | Add-Member default $null -Force }
             Save-Config $config
             Write-Host "Base -$key removida."
         }
