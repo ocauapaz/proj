@@ -47,6 +47,43 @@ function Get-ShortcutTarget($file) {
     return $cdLine -replace '^cd /d "?(.*?)"?$', '$1'
 }
 
+# The command is the line right after `cd /d`, minus the trailing %*.
+function Get-ShortcutCommand($file) {
+    $lines = @(Get-Content -LiteralPath $file.FullName)
+    for ($i = 0; $i -lt $lines.Count - 1; $i++) {
+        if ($lines[$i] -like 'cd /d *') { return ($lines[$i + 1] -replace '\s*%\*\s*$', '') }
+    }
+    return 'claude'
+}
+
+# `<name> --kade` opens the folder in KADE (github.com/ocauapaz/kade) instead of running the command.
+# Labels + goto instead of ( ) blocks: a folder like "Program Files (x86)" would break a block.
+function New-ShortcutContent($target, $command) {
+    return @(
+        '@echo off'
+        $marker
+        'if /i "%~1"=="--kade" goto kade'
+        "cd /d `"$target`""
+        "$command %*"
+        'exit /b %errorlevel%'
+        ':kade'
+        'setlocal'
+        'if not defined KADE_EXE set "KADE_EXE=%LOCALAPPDATA%\KADE\kade.exe"'
+        'if not exist "%KADE_EXE%" for %%k in (kade.exe) do if not "%%~$PATH:k"=="" set "KADE_EXE=%%~$PATH:k"'
+        'if not exist "%KADE_EXE%" goto nokade'
+        "start `"`" /D `"$target`" `"%KADE_EXE%`" ."
+        'exit /b 0'
+        ':nokade'
+        'echo KADE not found. Install it from github.com/ocauapaz/kade or set KADE_EXE to kade.exe.'
+        'exit /b 1'
+    ) -join "`r`n"
+}
+
+function Write-Shortcut($name, $target, $command) {
+    New-Item -ItemType Directory -Force -Path $binDir | Out-Null
+    [IO.File]::WriteAllText((Join-Path $binDir "$name.bat"), (New-ShortcutContent $target $command) + "`r`n", (Get-BatEncoding))
+}
+
 function Split-Args($list) {
     $positional = @()
     $baseKey = $null
@@ -71,6 +108,9 @@ Usage:
   proj add <name> -<base> [folder] create in a specific base
   proj add <name> <C:\full\path>   full path skips the base; use . for the current folder
   proj rm <name>                   remove a shortcut (the project folder is kept)
+  proj sync                        update old shortcuts to the current format (adds --kade)
+
+  <name> --kade                    open the project in KADE instead of the terminal
 
   proj base                        list bases
   proj base add <key> <folder>     add a base, e.g. proj base add r "E:\Roblox Projects"
@@ -113,10 +153,19 @@ function Invoke-Add($list) {
     }
     $target = (Resolve-Path -LiteralPath $target).Path
 
-    New-Item -ItemType Directory -Force -Path $binDir | Out-Null
-    $content = "@echo off`r`n$marker`r`ncd /d `"$target`"`r`n$($config.command) %*`r`n"
-    [IO.File]::WriteAllText((Join-Path $binDir "$name.bat"), $content, (Get-BatEncoding))
+    Write-Shortcut $name $target $config.command
     Write-Host "Created: $name -> $target"
+}
+
+# Rewrites every shortcut with the current template, keeping its folder and command.
+function Invoke-Sync {
+    $shortcuts = @(Get-Shortcuts)
+    foreach ($s in $shortcuts) {
+        $target = Get-ShortcutTarget $s
+        $command = Get-ShortcutCommand $s
+        Write-Shortcut $s.BaseName $target $command
+    }
+    Write-Host "Updated $($shortcuts.Count) shortcut(s)."
 }
 
 function Invoke-Remove($name) {
@@ -188,5 +237,6 @@ switch ($action) {
     { $_ -in 'add', 'new' } { Invoke-Add $rest }
     { $_ -in 'rm', 'remove', 'del' } { Invoke-Remove ($rest | Select-Object -First 1) }
     'base' { Invoke-Base $rest }
+    'sync' { Invoke-Sync }
     default { Show-Usage }
 }

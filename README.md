@@ -55,6 +55,15 @@ This creates the folder `C:\Users\<you>\projects\mygame` (if it doesn't exist) a
 ```
 mygame          → opens Claude Code in C:\Users\<you>\projects\mygame
 mygame -c       → same, continuing your last conversation (extra arguments go to claude)
+mygame --kade   → opens the project in KADE instead of the terminal
+```
+
+`--kade` needs [KADE](https://github.com/ocauapaz/kade) installed. It looks for `%LOCALAPPDATA%\KADE\kade.exe`, then `kade.exe` on your PATH; set `KADE_EXE` to point anywhere else. If KADE is already open, the project opens in the same window. Your `proj` shortcuts also show up in KADE's project list on their own.
+
+Shortcuts created before `--kade` existed can be upgraded with:
+
+```
+proj sync
 ```
 
 ---

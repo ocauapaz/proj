@@ -38,6 +38,32 @@ try {
     & $proj base rm r | Out-Null
     Assert (-not (Read-Json).default) 'removing the base clears the default'
 
+    # Run the generated .bat for real: normal path runs the command, --kade looks for KADE.
+    $weird = New-Item -ItemType Directory -Force -Path (Join-Path $tmp 'Weird (x86) Folder')
+    $config = Read-Json
+    $config.command = 'echo RAN'
+    $config | ConvertTo-Json | Set-Content (Join-Path $env:PROJ_HOME 'config.json')
+    & $proj add zzprojrun $weird.FullName | Out-Null
+    $bat = Join-Path $env:PROJ_HOME 'bin\zzprojrun.bat'
+    Assert ((cmd /c "`"$bat`" hello") -contains 'RAN hello') 'shortcut runs its command with the arguments'
+    $env:KADE_EXE = Join-Path $tmp 'missing\kade.exe'
+    $savedPath = $env:PATH
+    $env:PATH = "$env:SystemRoot\system32"
+    $out = cmd /c "`"$bat`" --kade"
+    $code = $LASTEXITCODE
+    $env:PATH = $savedPath
+    Remove-Item Env:KADE_EXE
+    Assert ($code -eq 1 -and ($out -match 'KADE not found')) '--kade without KADE fails with a clear message, even with ( ) in the path'
+
+    # sync upgrades an old-format shortcut and keeps folder + command.
+    $old = Join-Path $env:PROJ_HOME 'bin\zzprojold.bat'
+    [IO.File]::WriteAllText($old, "@echo off`r`nrem proj-shortcut`r`ncd /d `"$tmp`"`r`ncode . %*`r`n")
+    & $proj sync | Out-Null
+    $synced = Get-Content $old
+    Assert ($synced -contains 'if /i "%~1"=="--kade" goto kade') 'sync adds --kade'
+    Assert ($synced -contains "cd /d `"$tmp`"") 'sync keeps the folder'
+    Assert ($synced -contains 'code . %*') 'sync keeps the command'
+
     Write-Host 'OK: all tests passed'
 }
 finally {
